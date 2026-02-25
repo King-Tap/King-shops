@@ -21,13 +21,13 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Capacitor
+      - name: Install Dependencies
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           mkdir -p www
           cp index.html www/
 
-      - name: Initialize Android
+      - name: Initialize and Slim Down
         run: |
           rm -rf android
           npx cap init "King Shops" "com.kingshops.game" --web-dir www
@@ -46,18 +46,16 @@ jobs:
             cp "$IMAGE" "$folder/ic_launcher_foreground.png"
           done
 
-      - name: Build Minified APK
+      - name: Build Optimized APK
         run: |
           npx cap copy
           cd android
           chmod +x gradlew
-          # تنظيف البناء القديم وضغطه لتقليل الحجم
-          ./gradlew clean assembleDebug
+          # تنظيف وبناء نسخة مضغوطة مع تجاهل ملفات الاختبار والترجمة الزائدة
+          ./gradlew assembleDebug -Pandroid.enableR8=true -x test
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Slim
+          name: King-Shops-Ultra-Slim
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          # ضغط الملف المرفوع لتقليل احتمالية الحظر أثناء التحميل
-          compression-level: 9 
