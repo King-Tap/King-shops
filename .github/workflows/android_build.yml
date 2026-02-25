@@ -1,0 +1,55 @@
+name: Build Android APK
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Initialize Project and Install Capacitor
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
+
+      - name: Create Web Assets and Config
+        run: |
+          mkdir -p www
+          # نسخ ملف اللعبة الأساسي إلى مجلد الويب
+          cp index.html www/
+          # تهيئة كاباسيتور باسم اللعبة الخاص بك
+          npx cap init "إمبراطور الإنفاق" "com.rich.game" --web-dir www
+          npx cap add android
+
+      - name: Generate App Icons
+        run: |
+          # هذه الخطوة تبحث عن ملف اسمه icon.png في المجلد الرئيسي وتحوله لأيقونات تطبيق
+          # تأكد من رفع صورة باسم icon.png في مستودعك
+          if [ -f "icon.png" ]; then
+            npx capacitor-assets generate --android
+          fi
+
+      - name: Build Android APK
+        run: |
+          npx cap copy
+          cd android && ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Spend-Billions-Game-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
