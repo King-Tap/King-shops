@@ -21,31 +21,45 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Capacitor CLI
-        run: npm install @capacitor/cli @capacitor/core @capacitor/android
-
-      - name: Build Web Assets
+      - name: Install Capacitor
         run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android
           mkdir -p www
           cp index.html www/
-          # التأكد من وجود ملف فارغ للأيقونة لتجنب أخطاء المسار
-          touch www/icon.png 
 
-      - name: Initialize Capacitor Project
+      - name: Initialize Android
         run: |
           rm -rf android
           npx cap init "King Shops" "com.kingshops.game" --web-dir www
           npx cap add android
 
-      - name: Build Android App
+      - name: Force Icon Overwrite
         run: |
-          npx cap sync
+          IMAGE="1772038628701.png"
+          RES_PATH="android/app/src/main/res"
+          
+          # 1. حذف ملفات الأيقونات "التكيفية" التي تسبب ظهور الروبوت الأخضر
+          find $RES_PATH -name "ic_launcher_foreground.png" -delete
+          find $RES_PATH -name "ic_launcher.xml" -delete
+          find $RES_PATH -name "ic_launcher_round.xml" -delete
+
+          # 2. نسخ صورتك لكل المجلدات لتكون هي الأيقونة الوحيدة المتاحة
+          for folder in $RES_PATH/mipmap-*; do
+            cp "$IMAGE" "$folder/ic_launcher.png"
+            cp "$IMAGE" "$folder/ic_launcher_round.png"
+            # نسخ الصورة كخلفية وأمامية أيضاً لضمان عدم ظهور أي شيء آخر
+            cp "$IMAGE" "$folder/ic_launcher_foreground.png"
+          done
+
+      - name: Build APK
+        run: |
+          npx cap copy
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Success
+          name: King-Shops-Final-Icon
           path: android/app/build/outputs/apk/debug/app-debug.apk
