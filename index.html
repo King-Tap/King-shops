@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إمبراطور الإنفاق - النسخة الشاملة</title>
+    <style>
+        :root { --gold: #d4af37; --green: #2ecc71; --dark: #0a0a0a; --card: #161616; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--dark); color: white; margin: 0; padding-bottom: 100px; }
+        
+        .header { background: #000; padding: 15px; position: sticky; top: 0; z-index: 1000; border-bottom: 2px solid var(--gold); text-align: center; }
+        .balance { font-size: clamp(1.5rem, 8vw, 2.8rem); color: var(--green); font-weight: 900; margin: 5px 0; }
+        
+        .category-nav { display: flex; overflow-x: auto; gap: 10px; padding: 15px; background: #111; border-bottom: 1px solid #333; scrollbar-width: none; }
+        .cat-btn { background: #222; border: 1px solid #444; color: white; padding: 8px 20px; border-radius: 20px; cursor: pointer; white-space: nowrap; transition: 0.3s; }
+        .cat-btn.active { background: var(--gold); color: black; font-weight: bold; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; padding: 15px; max-width: 1200px; margin: auto; }
+        .item { background: var(--card); border-radius: 15px; overflow: hidden; border: 1px solid #333; display: none; }
+        .item.show { display: block; }
+        .item img { width: 100%; height: 120px; object-fit: cover; }
+        .item-info { padding: 10px; text-align: center; }
+        .item-name { font-size: 0.85rem; font-weight: bold; height: 35px; overflow: hidden; }
+        .item-price { color: var(--gold); font-size: 0.9rem; margin: 5px 0; font-weight: bold; }
+
+        .btns { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+        button.action { padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 0.75rem; }
+        .buy { background: var(--green); color: black; }
+        .sell { background: #333; color: white; }
+        .sell.active { background: #e74c3c; }
+
+        .btn-receipt-trigger { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--gold); color: black; padding: 15px 30px; border-radius: 50px; font-weight: bold; box-shadow: 0 5px 20px rgba(0,0,0,0.5); z-index: 1001; }
+        .receipt-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; z-index: 2000; justify-content: center; align-items: center; }
+        .receipt-box { background: white; color: black; width: 90%; max-width: 400px; padding: 20px; border-radius: 10px; max-height: 80vh; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div id="celeb-select" style="display: flex; gap: 15px; overflow-x: auto; justify-content: center; padding-bottom: 5px;"></div>
+        <div class="balance" id="balance">$0</div>
+    </div>
+
+    <div class="category-nav" id="cat-nav">
+        <button class="cat-btn active" onclick="filterCat('phones', this)">📱 الهواتف</button>
+        <button class="cat-btn" onclick="filterCat('cars', this)">🏎️ السيارات</button>
+        <button class="cat-btn" onclick="filterCat('tv', this)">📺 الشاشات</button>
+        <button class="cat-btn" onclick="filterCat('bikes', this)">🏍️ الدراجات</button>
+        <button class="cat-btn" onclick="filterCat('house', this)">🏠 العقارات</button>
+        <button class="cat-btn" onclick="filterCat('home', this)">🍳 أدوات منزلية</button>
+        <button class="cat-btn" onclick="filterCat('planes', this)">✈️ الطائرات</button>
+        <button class="cat-btn" onclick="filterCat('companies', this)">🏢 الشركات</button>
+        <button class="cat-btn" onclick="filterCat('cities', this)">🏙️ المدن</button>
+        <button class="cat-btn" onclick="filterCat('planets', this)">🪐 الكواكب</button>
+    </div>
+
+    <div class="grid" id="market"></div>
+
+    <button class="btn-receipt-trigger" onclick="showReceipt()">📄 عرض الفاتورة النهائية</button>
+
+    <div class="receipt-overlay" id="overlay" onclick="this.style.display='none'">
+        <div class="receipt-box" onclick="event.stopPropagation()" style="font-family: monospace;">
+            <h2 style="text-align:center">إيصال الملك 💸</h2>
+            <div id="receipt-list"></div>
+            <div id="receipt-total" style="font-weight:bold; border-top:2px solid #000; margin-top:10px; padding-top:10px;"></div>
+            <button onclick="document.getElementById('overlay').style.display='none'" style="width:100%; margin-top:15px; padding:10px; background:#000; color:#fff; border:none;">إغلاق</button>
+        </div>
+    </div>
+
+    <script>
+        const celebs = [
+            { name: "إيلون ماسك", wealth: 215000000000, img: "https://upload.wikimedia.org/wikipedia/commons/9/99/Elon_Musk_Colorado_2022_%28cropped2%29.jpg" },
+            { name: "كريستيانو", wealth: 800000000, img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0tW7yH0M-O_I8C8pYfP5p6E7ZqjW0O6N_fA&s" },
+            { name: "مستر بيست", wealth: 500000000, img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_6uXjX6N_X-w_YpGvA&s" }
+        ];
+
+        const items = [
+            // الهواتف
+            { cat: 'phones', name: "Samsung S24 Ultra", price: 1300, img: "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=400" },
+            { cat: 'phones', name: "iPhone 15 Pro Max", price: 1500, img: "https://images.unsplash.com/photo-1696446701796-da61225697cc?w=400" },
+            { cat: 'phones', name: "Huawei Mate XT", price: 2800, img: "https://images.unsplash.com/photo-1550020484-9333a3889098?w=400" },
+            { cat: 'phones', name: "Vivo X100 Pro", price: 900, img: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400" },
+            { cat: 'phones', name: "Phone Gold Edition", price: 100000, img: "https://images.unsplash.com/photo-1605170439002-90f450c99706?w=400" },
+
+            // السيارات
+            { cat: 'cars', name: "Tesla Model S", price: 90000, img: "https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=400" },
+            { cat: 'cars', name: "Lamborghini Huracan", price: 250000, img: "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?w=400" },
+            { cat: 'cars', name: "Ferrari LaFerrari", price: 3000000, img: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=400" },
+            { cat: 'cars', name: "Bugatti Chiron", price: 4000000, img: "https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?w=400" },
+            { cat: 'cars', name: "Rolls-Royce Boat Tail", price: 28000000, img: "https://images.unsplash.com/photo-1631214524020-5e18895470a3?w=400" },
+
+            // الشاشات
+            { cat: 'tv', name: "LG OLED 65' 4K", price: 2500, img: "https://images.unsplash.com/photo-1558888401-3cc1de77652d?w=400" },
+            { cat: 'tv', name: "Samsung Neo G9", price: 3000, img: "https://images.unsplash.com/photo-1593784991095-a205069470b6?w=400" },
+            { cat: 'tv', name: "Sony 85' 8K HDR", price: 12000, img: "https://images.unsplash.com/photo-1552533044-539958788414?w=400" },
+            { cat: 'tv', name: "Transparent OLED TV", price: 25000, img: "https://images.unsplash.com/photo-1542393545-10f5cde2c810?w=400" },
+            { cat: 'tv', name: "IMAX Home Theater", price: 500000, img: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400" },
+
+            // الدراجات
+            { cat: 'bikes', name: "Mountain Bike Pro", price: 5000, img: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400" },
+            { cat: 'bikes', name: "Yamaha R1", price: 22000, img: "https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?w=400" },
+            { cat: 'bikes', name: "Harley-Davidson Fat Boy", price: 35000, img: "https://images.unsplash.com/photo-1558981403-c5f91cbba527?w=400" },
+            { cat: 'bikes', name: "Ducati Panigale V4", price: 45000, img: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=400" },
+            { cat: 'bikes', name: "Gold Plated Bike", price: 500000, img: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400" },
+
+            // العقارات
+            { cat: 'house', name: "Appartment New York", price: 5000000, img: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400" },
+            { cat: 'house', name: "Luxury Villa Dubai", price: 12000000, img: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400" },
+            { cat: 'house', name: "European Castle", price: 80000000, img: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400" },
+            { cat: 'house', name: "Private Island", price: 150000000, img: "https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=400" },
+            { cat: 'house', name: "Skyscraper Manhattan", price: 2000000000, img: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400" },
+
+            // أدوات منزلية
+            { cat: 'home', name: "Kitchen Mixer Pro", price: 800, img: "https://images.unsplash.com/photo-1570222094114-d054a817e56b?w=400" },
+            { cat: 'home', name: "Smart Fridge", price: 4500, img: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400" },
+            { cat: 'home', name: "Luxury Dining Set", price: 10000, img: "https://images.unsplash.com/photo-1584990344610-527c00059f8a?w=400" },
+            { cat: 'home', name: "Robot Vacuum", price: 1500, img: "https://images.unsplash.com/photo-1518314916381-7751996d0056?w=400" },
+            { cat: 'home', name: "Italian Stove", price: 20000, img: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=400" },
+
+            // الطائرات
+            { cat: 'planes', name: "Helicopter", price: 2000000, img: "https://images.unsplash.com/photo-1540962351504-03099e0a754b?w=400" },
+            { cat: 'planes', name: "Private Jet", price: 75000000, img: "https://images.unsplash.com/photo-1570710891163-6d3b5c47248b?w=400" },
+            { cat: 'planes', name: "Boeing 747 Private", price: 400000000, img: "https://images.unsplash.com/photo-1544015759-11246b9a8481?w=400" },
+            { cat: 'planes', name: "Airbus A380 VIP", price: 600000000, img: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=400" },
+            { cat: 'planes', name: "Aircraft Carrier", price: 13000000000, img: "https://images.unsplash.com/photo-1564613204321-4122d4f20f66?w=400" },
+
+            // الشركات
+            { cat: 'companies', name: "McDonalds Franchise", price: 2000000, img: "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=400" },
+            { cat: 'companies', name: "Netflix", price: 200000000000, img: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400" },
+            { cat: 'companies', name: "X (Twitter)", price: 44000000000, img: "https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400" },
+            { cat: 'companies', name: "Amazon", price: 1500000000000, img: "https://images.unsplash.com/photo-1523474253046-2cd2c78b6ad1?w=400" },
+            { cat: 'companies', name: "Apple", price: 3000000000000, img: "https://images.unsplash.com/photo-1611186871348-b1ec696e52c9?w=400" },
+
+            // المدن
+            { cat: 'cities', name: "Monaco City", price: 500000000000, img: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400" },
+            { cat: 'cities', name: "Dubai City", price: 800000000000, img: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400" },
+            { cat: 'cities', name: "Paris", price: 900000000000, img: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=400" },
+            { cat: 'cities', name: "New York City", price: 2000000000000, img: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=400" },
+            { cat: 'cities', name: "Tokyo City", price: 1500000000000, img: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400" },
+
+            // الكواكب
+            { cat: 'planets', name: "The Moon", price: 5000000000, img: "https://images.unsplash.com/photo-1522030239044-1ae2f1441df4?w=400" },
+            { cat: 'planets', name: "Mars Planet", price: 100000000000, img: "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=400" },
+            { cat: 'planets', name: "Jupiter Planet", price: 500000000000, img: "https://images.unsplash.com/photo-1614730321146-b6fa6a46bc46?w=400" },
+            { cat: 'planets', name: "Saturn Planet", price: 800000000000, img: "https://images.unsplash.com/photo-1614732130135-d710c5ad99be?w=400" },
+            { cat: 'planets', name: "Andromeda Galaxy", price: 9000000000000, img: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=400" }
+        ];
+
+        let currentWealth = 0;
+        let inventory = {};
+
+        function init() {
+            const cSel = document.getElementById('celeb-select');
+            celebs.forEach((c, i) => {
+                cSel.innerHTML += `<div onclick="selectCeleb(${i})" style="cursor:pointer; text-align:center; min-width:80px;"><img src="${c.img}" style="width:55px; height:55px; border-radius:50%; border:2px solid var(--gold);"><div style="font-size:10px; font-weight:bold;">${c.name}</div></div>`;
+            });
+
+            const m = document.getElementById('market');
+            items.forEach((item, i) => {
+                inventory[i] = 0;
+                m.innerHTML += `<div class="item ${item.cat}"><img src="${item.img}"><div class="item-info"><div class="item-name">${item.name}</div><div class="item-price">$${item.price.toLocaleString()}</div><div class="btns"><button class="action sell" id="s-${i}" onclick="sell(${i})">بيع</button><span id="q-${i}" style="font-weight:bold">0</span><button class="action buy" onclick="buy(${i})">شراء</button></div></div></div>`;
+            });
+            selectCeleb(0);
+            filterCat('phones', document.querySelector('.cat-btn'));
+        }
+
+        function filterCat(cat, btn) {
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.item').forEach(it => {
+                if(it.classList.contains(cat)) {
+                    it.classList.add('show');
+                } else {
+                    it.classList.remove('show');
+                }
+            });
+        }
+
+        function selectCeleb(i) {
+            currentWealth = celebs[i].wealth;
+            Object.keys(inventory).forEach(k => { inventory[k] = 0; updateUI(k); });
+            updateBalance();
+        }
+
+        function buy(i) {
+            if (currentWealth >= items[i].price) {
+                currentWealth -= items[i].price;
+                inventory[i]++;
+                updateUI(i);
+                updateBalance();
+            }
+        }
+
+        function sell(i) {
+            if (inventory[i] > 0) {
+                currentWealth += items[i].price;
+                inventory[i]--;
+                updateUI(i);
+                updateBalance();
+            }
+        }
+
+        function updateUI(i) {
+            document.getElementById(`q-${i}`).innerText = inventory[i];
+            const s = document.getElementById(`s-${i}`);
+            inventory[i] > 0 ? s.classList.add('active') : s.classList.remove('active');
+        }
+
+        function updateBalance() {
+            document.getElementById('balance').innerText = "$" + currentWealth.toLocaleString();
+        }
+
+        function showReceipt() {
+            const list = document.getElementById('receipt-list');
+            list.innerHTML = '';
+            let total = 0;
+            items.forEach((item, i) => {
+                if (inventory[i] > 0) {
+                    const cost = item.price * inventory[i];
+                    total += cost;
+                    list.innerHTML += `<div style="display:flex; justify-content:space-between; font-size:12px; margin:5px 0; border-bottom:1px dotted #ccc;"><span>${item.name} x${inventory[i]}</span><span>$${cost.toLocaleString()}</span></div>`;
+                }
+            });
+            document.getElementById('receipt-total').innerText = "الإجمالي: $" + total.toLocaleString();
+            document.getElementById('overlay').style.display = 'flex';
+        }
+
+        init();
+    </script>
+</body>
+</html>
