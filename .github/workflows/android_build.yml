@@ -37,29 +37,27 @@ jobs:
         run: |
           IMAGE="1772038628701.png"
           RES_PATH="android/app/src/main/res"
-          
-          # 1. حذف ملفات الأيقونات "التكيفية" التي تسبب ظهور الروبوت الأخضر
           find $RES_PATH -name "ic_launcher_foreground.png" -delete
           find $RES_PATH -name "ic_launcher.xml" -delete
           find $RES_PATH -name "ic_launcher_round.xml" -delete
-
-          # 2. نسخ صورتك لكل المجلدات لتكون هي الأيقونة الوحيدة المتاحة
           for folder in $RES_PATH/mipmap-*; do
             cp "$IMAGE" "$folder/ic_launcher.png"
             cp "$IMAGE" "$folder/ic_launcher_round.png"
-            # نسخ الصورة كخلفية وأمامية أيضاً لضمان عدم ظهور أي شيء آخر
             cp "$IMAGE" "$folder/ic_launcher_foreground.png"
           done
 
-      - name: Build APK
+      - name: Build Minified APK
         run: |
           npx cap copy
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          # تنظيف البناء القديم وضغطه لتقليل الحجم
+          ./gradlew clean assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Final-Icon
+          name: King-Shops-Slim
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          # ضغط الملف المرفوع لتقليل احتمالية الحظر أثناء التحميل
+          compression-level: 9 
