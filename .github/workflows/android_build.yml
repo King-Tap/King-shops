@@ -1,4 +1,4 @@
-name: Super Slim Offline APK
+name: Final Build Success
 on:
   push:
     branches: [ main ]
@@ -10,80 +10,42 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          node-version: 20
 
-      - name: Build Project Manually
+      - name: Install Ionic & Capacitor
         run: |
-          # 1. إنشاء الهيكل الأساسي
-          mkdir -p app/src/main/java/com/kingshops/game
-          mkdir -p app/src/main/assets
-          mkdir -p app/src/main/res/mipmap-mdpi
-          
-          # 2. وضع ملف اللعبة (أوفلاين)
-          cp index.html app/src/main/assets/
+          npm install -g @ionic/cli
+          npm install @capacitor/core @capacitor/cli @capacitor/android
 
-          # 3. كود الجافا (فتح اللعبة أوفلاين)
-          cat <<EOF > app/src/main/java/com/kingshops/game/MainActivity.java
-          package com.kingshops.game;
-          import android.app.Activity;
-          import android.os.Bundle;
-          import android.webkit.WebView;
-          public class MainActivity extends Activity {
-              @Override protected void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-                  WebView web = new WebView(this);
-                  web.getSettings().setJavaScriptEnabled(true);
-                  web.getSettings().setDomStorageEnabled(true);
-                  web.loadUrl("file:///android_asset/index.html");
-                  setContentView(web);
-              }
-          }
-          EOF
-
-          # 4. المانيفست (هوية التطبيق)
-          cat <<EOF > app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.kingshops.game">
-              <application android:label="King Shops" android:icon="@mipmap/ic_launcher">
-                  <activity android:name=".MainActivity" android:exported="true" android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          # 5. الأيقونة
-          cp 1772038628701.png app/src/main/res/mipmap-mdpi/ic_launcher.png || touch app/src/main/res/mipmap-mdpi/ic_launcher.png
-
-      - name: Build with Fixed Gradle Version
+      - name: Create Web Assets
         run: |
-          # إنشاء ملفات الإعدادات بنسخة مستقرة جداً
-          echo "include ':app'" > settings.gradle
-          echo "buildscript { repositories { google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:7.4.2' } }" > build.gradle
-          echo "allprojects { repositories { google(); mavenCentral() } }" >> build.gradle
+          mkdir -p www
+          cp index.html www/
+          # وضع صورتك كأيقونة أساسية
+          cp 1772038628701.png www/icon.png || touch www/icon.png
+
+      - name: Initialize & Build Android
+        run: |
+          # هذه الخطوات هي التي تنشئ المشروع بشكل قانوني يمنع الخطأ 1
+          npx cap init "King Shops" "com.kingshops.game" --web-dir www
+          npx cap add android
           
-          # ملف بناء التطبيق مع تفعيل الضغط لـ 3 ميجا
-          cat <<EOF > app/build.gradle
-          apply plugin: 'com.android.application'
-          android {
-              compileSdk 33
-              namespace "com.kingshops.game"
-              defaultConfig { applicationId "com.kingshops.game"; minSdk 21; targetSdk 33; versionCode 1; versionName "1.0" }
-              buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt') } }
-          }
-          EOF
-          
-          # تشغيل البناء بطريقة تمنع الانهيار
-          gradle assembleDebug --no-daemon
+          # ضغط الحجم وتفعيل الأوفلاين
+          sed -i 's/minifyEnabled false/minifyEnabled true/' android/app/build.gradle
+          sed -i 's/shrinkResources false/shrinkResources true/' android/app/build.gradle
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Offline-Success
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: King-Shops-Final-Result
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
