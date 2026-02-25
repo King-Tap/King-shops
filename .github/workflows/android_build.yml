@@ -16,17 +16,22 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Build Android Project from Scratch
+      - name: Install Gradle
         run: |
-          # 1. إنشاء الهيكل الأساسي
+          sudo apt-get update
+          sudo apt-get install -y gradle
+
+      - name: Build Android Project Structure
+        run: |
+          # إنشاء الهيكل الأساسي يدوياً
           mkdir -p app/src/main/java/com/kingshops/game
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/res/mipmap-mdpi
           
-          # 2. وضع ملف اللعبة (سيتم تحميله أوفلاين)
+          # 1. وضع ملف اللعبة (أوفلاين)
           cp index.html app/src/main/assets/
 
-          # 3. كود الجافا لتشغيل الملف محلياً
+          # 2. كود الجافا (WebView)
           cat <<EOF > app/src/main/java/com/kingshops/game/MainActivity.java
           package com.kingshops.game;
           import android.app.Activity;
@@ -40,7 +45,7 @@ jobs:
                   WebView webView = new WebView(this);
                   WebSettings settings = webView.getSettings();
                   settings.setJavaScriptEnabled(true);
-                  settings.setDomStorageEnabled(true); // مهم لحفظ الذهب والفلوس أوفلاين
+                  settings.setDomStorageEnabled(true);
                   settings.setAllowFileAccess(true);
                   webView.loadUrl("file:///android_asset/index.html");
                   setContentView(webView);
@@ -48,7 +53,7 @@ jobs:
           }
           EOF
 
-          # 4. المانيفست (هوية التطبيق)
+          # 3. المانيفست
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.kingshops.game">
               <application android:label="King Shops" android:icon="@mipmap/ic_launcher">
@@ -62,32 +67,53 @@ jobs:
           </manifest>
           EOF
 
-          # 5. وضع صورتك كأيقونة
-          cp 1772038628701.png app/src/main/res/mipmap-mdpi/ic_launcher.png
+          # 4. الأيقونة الخاصة بك
+          if [ -f "1772038628701.png" ]; then
+            cp 1772038628701.png app/src/main/res/mipmap-mdpi/ic_launcher.png
+          fi
 
-      - name: Build with Gradle
+      - name: Create Build Files
         run: |
-          # استخدام ملف بناء بسيط جداً لضمان حجم 2-3 ميجا
-          cat <<EOF > build.gradle
-          buildscript { repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' } }
-          EOF
           cat <<EOF > settings.gradle
           include ':app'
           EOF
+          
+          cat <<EOF > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+          }
+          allprojects {
+              repositories { google(); mavenCentral() }
+          }
+          EOF
+
           cat <<EOF > app/build.gradle
           apply plugin: 'com.android.application'
           android {
               compileSdk 34
               namespace "com.kingshops.game"
-              defaultConfig { applicationId "com.kingshops.game"; minSdk 21; targetSdk 34; versionCode 1; versionName "1.0" }
-              buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt') } }
+              defaultConfig {
+                  applicationId "com.kingshops.game"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled true
+                      shrinkResources true
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+                  }
+              }
           }
           EOF
-          chmod +x gradlew || true
-          ./gradlew assembleDebug
 
-      - name: Upload Small APK
+      - name: Build with Gradle
+        run: gradle assembleDebug
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: King-Shops-Offline-3MB
