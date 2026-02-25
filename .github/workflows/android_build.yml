@@ -26,11 +26,42 @@ jobs:
           npm install @capacitor/core @capacitor/cli @capacitor/android
           mkdir -p www
           cp index.html www/
-          # حذف أي إعدادات قديمة للبدء من جديد
           rm -rf android
           npx cap init "King Shops" "com.kingshops.game" --web-dir www
           npx cap add android
+
+      - name: Create Default Icon Programmatically
+        run: |
+          # سكريبت لتوليد أيقونة افتراضية احترافية في حال عدم وجود صورة
+          python3 -c "
+          from PIL import Image, ImageDraw, ImageFont
+          import os
           
+          def create_icon(size, path):
+              img = Image.new('RGB', (size, size), color='#0a0a0a')
+              draw = ImageDraw.Draw(img)
+              # رسم إطار ذهبي
+              draw.ellipse([size*0.05, size*0.05, size*0.95, size*0.95], outline='#d4af37', width=int(size/20))
+              # حفظ الصورة في المسارات المطلوبة
+              os.makedirs(os.path.dirname(path), exist_ok=True)
+              img.save(path)
+
+          # مسارات أيقونات أندرويد الافتراضية
+          base = 'android/app/src/main/res/'
+          paths = [
+              (48, 'mipmap-mdpi/ic_launcher.png'),
+              (72, 'mipmap-hdpi/ic_launcher.png'),
+              (96, 'mipmap-xhdpi/ic_launcher.png'),
+              (144, 'mipmap-xxhdpi/ic_launcher.png'),
+              (192, 'mipmap-xxxhdpi/ic_launcher.png')
+          ]
+          for size, p in paths:
+              create_icon(size, base + p)
+              # عمل نفس النسخة للأيقونة الدائرية
+              create_icon(size, base + p.replace('ic_launcher', 'ic_launcher_round'))
+          "
+        shell: bash
+
       - name: Build APK
         run: |
           npx cap copy
