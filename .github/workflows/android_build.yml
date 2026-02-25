@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Super Slim Offline APK
 on:
   push:
     branches: [ main ]
@@ -16,53 +16,79 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Capacitor
+      - name: Build Android Project from Scratch
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          mkdir -p www
-          cp index.html www/
+          # 1. إنشاء الهيكل الأساسي
+          mkdir -p app/src/main/java/com/kingshops/game
+          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/res/mipmap-mdpi
+          
+          # 2. وضع ملف اللعبة (سيتم تحميله أوفلاين)
+          cp index.html app/src/main/assets/
 
-      - name: Initialize Android
+          # 3. كود الجافا لتشغيل الملف محلياً
+          cat <<EOF > app/src/main/java/com/kingshops/game/MainActivity.java
+          package com.kingshops.game;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  WebView webView = new WebView(this);
+                  WebSettings settings = webView.getSettings();
+                  settings.setJavaScriptEnabled(true);
+                  settings.setDomStorageEnabled(true); // مهم لحفظ الذهب والفلوس أوفلاين
+                  settings.setAllowFileAccess(true);
+                  webView.loadUrl("file:///android_asset/index.html");
+                  setContentView(webView);
+              }
+          }
+          EOF
+
+          # 4. المانيفست (هوية التطبيق)
+          cat <<EOF > app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.kingshops.game">
+              <application android:label="King Shops" android:icon="@mipmap/ic_launcher">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # 5. وضع صورتك كأيقونة
+          cp 1772038628701.png app/src/main/res/mipmap-mdpi/ic_launcher.png
+
+      - name: Build with Gradle
         run: |
-          rm -rf android
-          npx cap init "King Shops" "com.kingshops.game" --web-dir www
-          npx cap add android
+          # استخدام ملف بناء بسيط جداً لضمان حجم 2-3 ميجا
+          cat <<EOF > build.gradle
+          buildscript { repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' } }
+          EOF
+          cat <<EOF > settings.gradle
+          include ':app'
+          EOF
+          cat <<EOF > app/build.gradle
+          apply plugin: 'com.android.application'
+          android {
+              compileSdk 34
+              namespace "com.kingshops.game"
+              defaultConfig { applicationId "com.kingshops.game"; minSdk 21; targetSdk 34; versionCode 1; versionName "1.0" }
+              buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt') } }
+          }
+          EOF
+          chmod +x gradlew || true
+          ./gradlew assembleDebug
 
-      - name: Force Icon Overwrite
-        run: |
-          IMAGE="1772038628701.png"
-          RES_PATH="android/app/src/main/res"
-          find $RES_PATH -name "ic_launcher_foreground.png" -delete
-          find $RES_PATH -name "ic_launcher.xml" -delete
-          find $RES_PATH -name "ic_launcher_round.xml" -delete
-          for folder in $RES_PATH/mipmap-*; do
-            cp "$IMAGE" "$folder/ic_launcher.png"
-            cp "$IMAGE" "$folder/ic_launcher_round.png"
-            cp "$IMAGE" "$folder/ic_launcher_foreground.png"
-          done
-
-      - name: Optimization & Shrinking (The 3MB Secret)
-        run: |
-          # تفعيل ضغط الكود وحذف الملفات غير المستخدمة من داخل إعدادات أندرويد
-          sed -i 's/minifyEnabled false/minifyEnabled true/' android/app/build.gradle
-          sed -i 's/shrinkResources false/shrinkResources true/' android/app/build.gradle
-          # إضافة إعدادات لضغط ملفات الـ APK الناتجة
-          echo "android.bundle.enableUncompressedNativeLibs=false" >> android/gradle.properties
-
-      - name: Build Super Slim APK
-        run: |
-          npx cap copy
-          cd android
-          chmod +x gradlew
-          ./gradlew clean assembleDebug
-
-      - name: Upload APK
+      - name: Upload Small APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Super-Slim
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: King-Shops-Offline-3MB
+          path: app/build/outputs/apk/debug/app-debug.apk
