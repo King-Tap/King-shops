@@ -13,25 +13,19 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Gradle
+      - name: Setup Android Project Structure
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gradle
-
-      - name: Build Android Project Structure
-        run: |
-          # إنشاء الهيكل الأساسي يدوياً
           mkdir -p app/src/main/java/com/kingshops/game
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/res/mipmap-mdpi
           
-          # 1. وضع ملف اللعبة (أوفلاين)
+          # وضع ملف اللعبة (أوفلاين)
           cp index.html app/src/main/assets/
 
-          # 2. كود الجافا (WebView)
+          # كود الجافا (فتح اللعبة كصفحة ويب داخل التطبيق)
           cat <<EOF > app/src/main/java/com/kingshops/game/MainActivity.java
           package com.kingshops.game;
           import android.app.Activity;
@@ -42,22 +36,22 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  WebView webView = new WebView(this);
-                  WebSettings settings = webView.getSettings();
-                  settings.setJavaScriptEnabled(true);
-                  settings.setDomStorageEnabled(true);
-                  settings.setAllowFileAccess(true);
-                  webView.loadUrl("file:///android_asset/index.html");
-                  setContentView(webView);
+                  WebView web = new WebView(this);
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setAllowFileAccess(true);
+                  web.loadUrl("file:///android_asset/index.html");
+                  setContentView(web);
               }
           }
           EOF
 
-          # 3. المانيفست
+          # المانيفست (إعدادات التطبيق الأساسية)
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.kingshops.game">
               <application android:label="King Shops" android:icon="@mipmap/ic_launcher">
-                  <activity android:name=".MainActivity" android:exported="true">
+                  <activity android:name=".MainActivity" android:exported="true" android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -67,12 +61,12 @@ jobs:
           </manifest>
           EOF
 
-          # 4. الأيقونة الخاصة بك
+          # وضع الأيقونة
           if [ -f "1772038628701.png" ]; then
             cp 1772038628701.png app/src/main/res/mipmap-mdpi/ic_launcher.png
           fi
 
-      - name: Create Build Files
+      - name: Setup Build Files
         run: |
           cat <<EOF > settings.gradle
           include ':app'
@@ -81,7 +75,7 @@ jobs:
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+              dependencies { classpath 'com.android.tools.build:gradle:8.1.0' }
           }
           allprojects {
               repositories { google(); mavenCentral() }
@@ -89,14 +83,14 @@ jobs:
           EOF
 
           cat <<EOF > app/build.gradle
-          apply plugin: 'com.android.application'
+          plugins { id 'com.android.application' }
           android {
-              compileSdk 34
+              compileSdk 33
               namespace "com.kingshops.game"
               defaultConfig {
                   applicationId "com.kingshops.game"
                   minSdk 21
-                  targetSdk 34
+                  targetSdk 33
                   versionCode 1
                   versionName "1.0"
               }
@@ -110,11 +104,14 @@ jobs:
           }
           EOF
 
-      - name: Build with Gradle
-        run: gradle assembleDebug
+      - name: Build with Gradle Wrapper
+        run: |
+          gradle wrapper --gradle-version 8.0
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Offline-3MB
+          name: King-Shops-Offline-Final
           path: app/build/outputs/apk/debug/app-debug.apk
