@@ -1,4 +1,4 @@
-name: Build Slim Offline APK
+name: Build Super Slim Offline APK
 on:
   push:
     branches: [ main ]
@@ -13,54 +13,89 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          distribution: 'temurin'
+          java-version: '11' # نسخة أكثر استقراراً للبناء البسيط
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Tools
+      - name: Build Project Structure
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          mkdir -p www
-          cp index.html www/
+          # إنشاء مجلدات المشروع يدوياً
+          mkdir -p app/src/main/java/com/kingshops/game
+          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/res/mipmap-mdpi
+          
+          # وضع ملف اللعبة (أوفلاين)
+          cp index.html app/src/main/assets/
 
-      - name: Initialize Android
-        run: |
-          rm -rf android
-          npx cap init "King Shops" "com.kingshops.game" --web-dir www
-          npx cap add android
+          # كود الجافا (فتح اللعبة أوفلاين)
+          cat <<EOF > app/src/main/java/com/kingshops/game/MainActivity.java
+          package com.kingshops.game;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  WebView web = new WebView(this);
+                  web.getSettings().setJavaScriptEnabled(true);
+                  web.getSettings().setDomStorageEnabled(true);
+                  web.loadUrl("file:///android_asset/index.html");
+                  setContentView(web);
+              }
+          }
+          EOF
 
-      - name: Replace Icon
-        run: |
-          IMAGE="1772038628701.png"
-          RES_PATH="android/app/src/main/res"
-          if [ -f "$IMAGE" ]; then
-            for folder in $RES_PATH/mipmap-*; do
-              cp "$IMAGE" "$folder/ic_launcher.png"
-              cp "$IMAGE" "$folder/ic_launcher_round.png"
-            done
+          # المانيفست (هوية التطبيق)
+          cat <<EOF > app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.kingshops.game">
+              <application android:label="King Shops" android:icon="@mipmap/ic_launcher">
+                  <activity android:name=".MainActivity" android:exported="true" android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # الأيقونة الخاصة بك
+          if [ -f "1772038628701.png" ]; then
+            cp 1772038628701.png app/src/main/res/mipmap-mdpi/ic_launcher.png
           fi
 
-      - name: Optimize & Shrink Size
+      - name: Create Minimal Build Files
         run: |
-          # تفعيل الضغط وحذف الأكواد الزائدة (السر في تقليل الحجم)
-          sed -i 's/minifyEnabled false/minifyEnabled true/' android/app/build.gradle
-          sed -i 's/shrinkResources false/shrinkResources true/' android/app/build.gradle
-          # حذف اللغات الزائدة التي تزيد الحجم
-          echo "android { defaultConfig { resConfigs 'en', 'ar' } }" >> android/app/build.gradle
+          cat <<EOF > settings.gradle
+          include ':app'
+          EOF
+          
+          cat <<EOF > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:7.4.2' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
 
-      - name: Build APK
+          cat <<EOF > app/build.gradle
+          plugins { id 'com.android.application' }
+          android {
+              compileSdk 33
+              namespace "com.kingshops.game"
+              defaultConfig { applicationId "com.kingshops.game"; minSdk 21; targetSdk 33; versionCode 1; versionName "1.0" }
+              buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt') } }
+          }
+          EOF
+
+      - name: Build APK with Wrapper
         run: |
-          npx cap copy
-          cd android
+          gradle wrapper --gradle-version 7.5
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Offline-Slim
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: King-Shops-Offline-3MB
+          path: app/build/outputs/apk/debug/app-debug.apk
