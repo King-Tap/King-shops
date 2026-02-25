@@ -21,9 +21,10 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Capacitor and Build
+      - name: Install Dependencies and Capacitor
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
+          pip install Pillow # هذه هي المكتبة التي تسببت في الفشل سابقاً
           mkdir -p www
           cp index.html www/
           rm -rf android
@@ -32,46 +33,27 @@ jobs:
 
       - name: Create Custom Default Icon
         run: |
-          # سكريبت لتوليد أيقونة احترافية باسم King Shops
           python3 -c "
-          from PIL import Image, ImageDraw, ImageFont
+          from PIL import Image, ImageDraw
           import os
 
           def create_icon(size, path):
-              # إنشاء خلفية سوداء
               img = Image.new('RGB', (size, size), color='#0a0a0a')
               draw = ImageDraw.Draw(img)
-              
-              # رسم إطار ذهبي دائري
               margin = size * 0.05
               draw.ellipse([margin, margin, size - margin, size - margin], outline='#d4af37', width=max(1, int(size/15)))
-              
-              # محاولة إضافة نص KS في المنتصف (باستخدام الخط الافتراضي)
-              try:
-                  text = 'KS'
-                  # حساب حجم الخط بناءً على حجم الأيقونة
-                  font_size = int(size * 0.4)
-                  # استخدام الخط الافتراضي للنظام في GitHub Actions
-                  draw.text((size/2, size/2), text, fill='#d4af37', anchor='mm', font_size=font_size)
-              except:
-                  pass
-
               os.makedirs(os.path.dirname(path), exist_ok=True)
               img.save(path)
 
           base = 'android/app/src/main/res/'
-          # أحجام الأيقونات القياسية لأندرويد
           icon_configs = [
               (48, 'mipmap-mdpi'), (72, 'mipmap-hdpi'), (96, 'mipmap-xhdpi'), 
               (144, 'mipmap-xxhdpi'), (192, 'mipmap-xxxhdpi')
           ]
-          
           for size, folder in icon_configs:
-              # الأيقونة المربعة والدائرية
               create_icon(size, f'{base}{folder}/ic_launcher.png')
               create_icon(size, f'{base}{folder}/ic_launcher_round.png')
           "
-        shell: bash
 
       - name: Build Android APK
         run: |
@@ -81,5 +63,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Final-APK
+          name: King-Shops-Fixed-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
