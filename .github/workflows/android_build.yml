@@ -21,51 +21,30 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Dependencies
+      - name: Install Capacitor and Build Tools
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          pip install Pillow
-
-      - name: Initialize Capacitor
-        run: |
+          npm install @capacitor/assets -g
           mkdir -p www
           cp index.html www/
+          
+          # استهداف اسم الصورة الصحيح والدقيق
+          if [ -f "1772038628701.png" ]; then
+            cp 1772038628701.png icon.png
+          fi
+
+      - name: Initialize and Generate Assets
+        run: |
           rm -rf android
           npx cap init "King Shops" "com.kingshops.game" --web-dir www
           npx cap add android
-
-      - name: Force Update Icon
-        run: |
-          python3 -c "
-          from PIL import Image, ImageDraw
-          import os
-          import shutil
-
-          def create_icon(size, path):
-              # إنشاء صورة بسيطة جداً: خلفية زرقاء مع مربع أصفر (للتأكد من التغيير)
-              img = Image.new('RGB', (size, size), color='#0000FF')
-              draw = ImageDraw.Draw(img)
-              margin = size * 0.2
-              draw.rectangle([margin, margin, size - margin, size - margin], fill='#FFFF00')
-              
-              os.makedirs(os.path.dirname(path), exist_ok=True)
-              img.save(path)
-              print(f'Created icon at {path}')
-
-          base = 'android/app/src/main/res/'
-          # مسح مجلدات الأيقونات القديمة تماماً لضمان عدم بقاء أي أثر للروبوت الأخضر
-          folders = ['mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi']
-          for f in folders:
-              target_path = os.path.join(base, f)
-              if os.path.exists(target_path):
-                  shutil.rmtree(target_path)
-              os.makedirs(target_path)
-
-          icon_configs = [(48, 'mipmap-mdpi'), (72, 'mipmap-hdpi'), (96, 'mipmap-xhdpi'), (144, 'mipmap-xxhdpi'), (192, 'mipmap-xxxhdpi')]
-          for size, folder in icon_configs:
-              create_icon(size, f'{base}{folder}/ic_launcher.png')
-              create_icon(size, f'{base}{folder}/ic_launcher_round.png')
-          "
+          
+          # توليد الأيقونات من الصورة الجديدة
+          if [ -f "icon.png" ]; then
+            npx capacitor-assets generate --android --icon icon.png
+          else
+            echo "الصورة غير موجودة بالاسم المطلوب!" && exit 1
+          fi
 
       - name: Build Android APK
         run: |
@@ -75,5 +54,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-New-Icon
+          name: King-Shops-Fixed
           path: android/app/build/outputs/apk/debug/app-debug.apk
