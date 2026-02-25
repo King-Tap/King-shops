@@ -21,45 +21,31 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Tools
+      - name: Install Capacitor CLI
+        run: npm install @capacitor/cli @capacitor/core @capacitor/android
+
+      - name: Build Web Assets
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
           mkdir -p www
           cp index.html www/
+          # التأكد من وجود ملف فارغ للأيقونة لتجنب أخطاء المسار
+          touch www/icon.png 
 
-      - name: Initialize Android
+      - name: Initialize Capacitor Project
         run: |
           rm -rf android
           npx cap init "King Shops" "com.kingshops.game" --web-dir www
           npx cap add android
 
-      - name: Create Internal Icon (Python)
+      - name: Build Android App
         run: |
-          python3 -c "
-          import os
-          # إنشاء أيقونة بسيطة جداً (مربع ملون) بدون مكتبات خارجية لضمان النجاح
-          def create_dummy_icon(path):
-              os.makedirs(os.path.dirname(path), exist_ok=True)
-              with open(path, 'wb') as f:
-                  # هذا كود PNG أصغر حجم ممكن (أيقونة بسيطة)
-                  f.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\x05\xfe\x1e\xfe\x00\x00\x00\x00IEND\xaeB`\x82')
-          
-          base = 'android/app/src/main/res/'
-          folders = ['mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi']
-          for f in folders:
-              create_dummy_icon(os.path.join(base, f, 'ic_launcher.png'))
-              create_dummy_icon(os.path.join(base, f, 'ic_launcher_round.png'))
-          "
-
-      - name: Build APK
-        run: |
-          npx cap copy
+          npx cap sync
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Safe-Build
+          name: King-Shops-Success
           path: android/app/build/outputs/apk/debug/app-debug.apk
