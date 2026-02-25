@@ -33,24 +33,31 @@ jobs:
           npx cap init "King Shops" "com.kingshops.game" --web-dir www
           npx cap add android
 
-      - name: Force Icon Replace
+      - name: Replace Icons
         run: |
-          # استبدال كل أيقونات أندرويد الافتراضية بصورتك فوراً
-          FILE_NAME="1772038628701.png"
-          TARGET_DIR="android/app/src/main/res"
+          # استبدال الصور يدويًا وبدقة
+          IMAGE="1772038628701.png"
+          RES_PATH="android/app/src/main/res"
           
-          for dir in $TARGET_DIR/mipmap-*; do
-            cp "$FILE_NAME" "$dir/ic_launcher.png"
-            cp "$FILE_NAME" "$dir/ic_launcher_round.png"
-          done
+          if [ -f "$IMAGE" ]; then
+            for folder in $RES_PATH/mipmap-*; do
+              cp "$IMAGE" "$folder/ic_launcher.png"
+              cp "$IMAGE" "$folder/ic_launcher_round.png"
+            done
+          else
+            echo "الملف $IMAGE غير موجود في المستودع!"
+            exit 1
+          fi
 
       - name: Build APK
         run: |
           npx cap copy
-          cd android && ./gradlew assembleDebug
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Final-Version
+          name: King-Shops-Final
           path: android/app/build/outputs/apk/debug/app-debug.apk
