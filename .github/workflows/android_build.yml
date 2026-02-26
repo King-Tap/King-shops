@@ -36,27 +36,25 @@ jobs:
           npx cap init "King Shops" "com.kingshops.game" --web-dir www
           npx cap add android
           
-          # ضغط الحجم وتفعيل الأوفلاين
+          # تفعيل الضغط لتقليل الحجم
           sed -i 's/minifyEnabled false/minifyEnabled true/' android/app/build.gradle
           sed -i 's/shrinkResources false/shrinkResources true/' android/app/build.gradle
 
-      - name: Change Default Icon (Internal Source)
+      - name: Wipe Default Icons
         run: |
-          # حذف ملفات الأيقونة التكيفية التي تظهر الروبوت الأخضر
-          find android/app/src/main/res/mipmap-* -name "ic_launcher_foreground.png" -delete
-          find android/app/src/main/res/mipmap-* -name "ic_launcher_round.png" -delete
-          find android/app/src/main/res/values* -name "ic_launcher_background.xml" -delete
-          
-          # إنشاء صورة افتراضية بسيطة (لون سادة) لتعمل كأيقونة جديدة مدمجة
-          python3 -c "
-          import os
-          content = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\x05\xfe\x1e\xfe\x00\x00\x00\x00IEND\xaeB`\x82'
-          for root, dirs, files in os.walk('android/app/src/main/res'):
-              for f in files:
-                  if 'ic_launcher' in f and f.endswith('.png'):
-                      with open(os.path.join(root, f), 'wb') as icon:
-                          icon.write(content)
-          "
+          # حذف كل ملفات الأيقونات الافتراضية (الروبوت الأخضر وكل ملحقاته)
+          find android/app/src/main/res/mipmap-* -name "ic_launcher*" -delete
+          find android/app/src/main/res/values* -name "ic_launcher*" -delete
+
+          # إنشاء أيقونة بلون سادة (أسود) برمجياً لتكون هي الأيقونة الجديدة
+          # هذا الأمر ينشئ ملف PNG بسيط جداً
+          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x10\x00\x00\x00\x10\x08\x02\x00\x00\x00\x90\x91\xf3\x1f\x00\x00\x00\x0cIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xdc\x44\x74\xed\x00\x00\x00\x00IEND\xaeB`\x82' > icon_fix.png
+
+          # توزيع الأيقونة الجديدة على كل المجلدات
+          for dir in android/app/src/main/res/mipmap-*; do
+            cp icon_fix.png "$dir/ic_launcher.png"
+            cp icon_fix.png "$dir/ic_launcher_round.png"
+          done
 
       - name: Build APK
         run: |
@@ -67,5 +65,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: King-Shops-Fixed-Icon
+          name: King-Shops-Fixed
           path: android/app/build/outputs/apk/debug/app-debug.apk
